@@ -1,0 +1,88 @@
+---
+title: "DATA 607 - Project 2.1"
+author: "Simon63"
+date: "March 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r lib, warning=FALSE, message=FALSE}
+# install.packages("tidyverse")
+library(readxl)
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+```
+
+
+Data Posted by Binish Kurian Chandy  
+WHO data on HIV  
+http://apps.who.int/gho/data/node.country.country-USA?lang=en  
+
+Downloaded complete data set for "USA" into .CSV file and named the file "USA GHO Stats.csv"
+
+Here's how the data looks initially:
+image: ![](C:/Users/simus/Documents/R/Project 2/USA GHO Stats.PNG)
+
+Read CSV File, skiping the first row in order to get proper headers
+```{r}
+df <- read.csv("~/R/Project 2/USA GHO Stats.csv", skip = 1, stringsAsFactors = F)
+```
+
+```{r tidy_header}
+names(df)
+names(df) <- str_replace_all(names(df), "X", "")
+names(df)
+```
+
+```{r tidy_infant_data}
+dfInfant <- filter(df, str_detect(Indicator, "[Ii]nfant")) %>% gather("Year", "N", 2:(2+2015-2002)) %>% tbl_df()
+knitr::kable(dfInfant)
+```
+
+5.7 [5.4-5.9]
+AVG [MIN-MAX]
+In order to separate that composite (united) value, the 3 values need to be delimited by a sep. character
+```{r explain_combined_value}
+str_view_all("5.7 [5.4-5.9]", "[\\[\\-\\]]")
+str_replace_all("5.7 [5.4-5.9]", "[\\[\\-\\]]", "|")
+```
+
+Apply separator "|" to "N" column
+```{r apply_sep_char}
+dfInfant$N <- str_replace_all(dfInfant$N, "[\\[\\-\\]]", "|")
+```
+
+Use separate() function to transform values in "AVG [MIN-MAX]" into 3 separate columns - AVG, MIN and MAX  
+NOTE: use "\\|" for sep. char since "|" is a special character in regex.  
+```{r use_separate_function}
+dfInfant <- separate(dfInfant, N, c("N", "MIN", "MAX"), sep = "\\|", convert = T)
+
+# Conver Year column into numeric
+dfInfant$Year <- type.convert(dfInfant$Year)
+
+dfInfant
+```
+
+Sort data set by Year, Indicator (in descending order)
+```{r tidy_arrange}
+dfInfant <- arrange(dfInfant, Year, desc(Indicator))
+
+```
+
+```{r plot_data}
+ggplot(data = dfInfant, mapping = aes(x = Year, y = N)) + 
+  geom_line() + 
+  geom_point() + 
+  facet_wrap(~ Indicator, nrow = 2) +
+  geom_text(aes(label = N), vjust = 0, nudge_y = 1, color = "red") +
+  labs(y ="NUmbers")
+
+```
+
+**Conclusion:**  
+The line graphs above show that the Infant mortality rate and numbers have been declining over the period although not for the first 4-5 years.
